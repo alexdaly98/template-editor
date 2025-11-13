@@ -3,19 +3,19 @@ import requests
 from writerai import Writer
 from io import BytesIO
 from PIL import Image
+import os
 
 st.set_page_config(page_title="AI Template Editor", layout="wide")
 
 st.title("🎨 AI-Powered Template Editor")
 
-# Sidebar for API keys and configuration
+# Get API keys from environment variables
+writer_api_key = os.getenv('WRITER_API_KEY')
+photoroom_api_key = os.getenv('PHOTOROOM_API_KEY')
+
+# Sidebar for configuration
 with st.sidebar:
     st.header("⚙️ Configuration")
-    writer_api_key = st.text_input("Writer API Key", type="password")
-    photoroom_api_key = st.text_input("PhotoRoom API Key", type="password")
-    
-    st.divider()
-    
     template_id = st.text_input("Template ID", value="ab19c9f6-235a-4ee5-9397-16baa4f705a1")
     layer_id = st.text_input("Layer ID", value="header")
 
@@ -24,13 +24,13 @@ st.header("📝 Step 1: Generate Title Variants")
 
 brief = st.text_area(
     "Marketing Brief",
-    value="marketing for black friday",
+    value="marketing for black friday of Sundays in Paris clothes brand",
     help="Describe what kind of titles you want to generate"
 )
 
 if st.button("🚀 Generate 10 Variants", type="primary", use_container_width=True):
     if not writer_api_key:
-        st.error("❌ Please enter your Writer API key in the sidebar")
+        st.error("❌ Writer API key not found in environment variables")
     else:
         with st.spinner("Generating title variants..."):
             try:
@@ -81,7 +81,7 @@ if 'variants' in st.session_state and st.session_state['variants']:
     st.divider()
     if st.button("🖼️ Generate Images for Selected Variants", type="primary", use_container_width=True):
         if not photoroom_api_key:
-            st.error("❌ Please enter your PhotoRoom API key in the sidebar")
+            st.error("❌ PhotoRoom API key not found in environment variables")
         elif not template_id or not layer_id:
             st.error("❌ Please enter Template ID and Layer ID in the sidebar")
         elif len(selected_indices) == 0:
@@ -165,25 +165,16 @@ with st.expander("📖 How to Use"):
     st.markdown("""
     ### Step-by-step Guide:
     
-    1. **Enter API Keys** in the sidebar:
-       - Writer API key for text generation
-       - PhotoRoom API key for image generation
-    
-    2. **Configure Template Settings** in the sidebar:
+    1. **Configure Template Settings** in the sidebar:
        - Template ID (the PhotoRoom template to use)
        - Layer ID (the text layer to modify)
     
-    3. **Enter Your Brief** and click "Generate 10 Variants"
+    2. **Enter Your Brief** and click "Generate 10 Variants"
        - The AI will create 10 different title options
     
-    4. **Select the variants** you want to create images for
+    3. **Select the variants** you want to create images for
        - Check the boxes next to your favorite titles
     
-    5. **Click "Generate Images"** to create the final designs
+    4. **Click "Generate Images"** to create the final designs
        - Download individual images using the download buttons
-    
-    ### Example Values:
-    - Template ID: `ab19c9f6-235a-4ee5-9397-16baa4f705a1`
-    - Layer ID: `header`
-    - Brief: `marketing for black friday`
     """)
