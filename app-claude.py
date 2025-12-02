@@ -23,8 +23,8 @@ st.header("📝 Step 1: Generate Header & CTA Variants")
 
 brief = st.text_area(
     "Marketing Brief",
-    value="Christmas presents for Pelican – Cases, Flashlights, Coolers, Travel Gear",
-    help="Describe the marketing campaign - we'll generate header and CTA button text pairs"
+    value="Christmas campaign for Pelican (Cases, Flashlights, Coolers, Travel Gear) \nHeader should be 4 words max and ALL CAPS\nCTA invites users to browse the website",
+    help="Describe the marketing campaign - we'll generate header and CTA button text pairs. Include any specific instructions for header or CTA"
 )
 
 # Fixed layer IDs and descriptions
