@@ -16,76 +16,121 @@ photoroom_api_key = os.getenv('PHOTOROOM_API_KEY')
 # Sidebar for configuration
 with st.sidebar:
     st.header("⚙️ Configuration")
-    template_id = st.text_input("Template ID", value="ab19c9f6-235a-4ee5-9397-16baa4f705a1")
-    layer_id = st.text_input("Layer ID", value="header")
+    template_id = st.text_input("Template ID", value="a8eed145-f813-4d60-b227-8015dac1889b")
 
 # Main content
-st.header("📝 Step 1: Generate Title Variants")
+st.header("📝 Step 1: Generate Header & CTA Variants")
 
 brief = st.text_area(
     "Marketing Brief",
-    value="marketing for black friday of Sundays in Paris clothes brand",
-    help="Describe what kind of titles you want to generate"
+    value="Christmas presents for Pelican – Cases, Flashlights, Coolers, Travel Gear",
+    help="Describe the marketing campaign - we'll generate header and CTA button text pairs"
 )
 
-if st.button("🚀 Generate 10 Variants", type="primary", use_container_width=True):
+# Fixed layer IDs and descriptions
+layer_id_1 = "header"
+layer_id_2 = "cta"
+layer_1_description = "Header"
+layer_2_description = "CTA"
+
+if st.button("🚀 Generate 10 Header & CTA Variants", type="primary", use_container_width=True):
     if not writer_api_key:
         st.error("❌ Writer API key not found in environment variables")
     else:
-        with st.spinner("Generating title variants..."):
+        with st.spinner("Generating variant couples..."):
             try:
                 # Initialize Writer client
                 client = Writer(api_key=writer_api_key)
                 
-                # Generate variants
+                # Generate variant couples
                 completion = client.completions.create(
                     model="palmyra-x-003-instruct",
-                    prompt=f"Generate 10 different catchy title variants for {brief}. Make them short, punchy, and effective for marketing. Return only the titles, one per line, numbered 1-10.",
-                    max_tokens=500
+                    prompt=f"""Generate 10 different marketing variant couples for {brief}.
+                    
+For each couple, provide:
+- A catchy header/headline
+- A compelling CTA (call-to-action) button text
+
+Format each couple exactly like this:
+1. Header: [header text]
+   CTA: [CTA button text]
+
+Make them punchy and effective for marketing. Generate all 10 couples numbered 1-10.""",
+                    max_tokens=1000
                 )
                 
-                # Parse variants
+                # Parse variant couples
                 text = completion.choices[0].text
                 lines = [line.strip() for line in text.split('\n') if line.strip()]
-                variants = [line.split('.', 1)[-1].strip() if '.' in line else line for line in lines]
-                variants = [v.split(')', 1)[-1].strip() if ')' in v else v for v in variants]
-                variants = variants[:10]  # Ensure we have exactly 10
+                
+                # Extract couples
+                couples = []
+                current_couple = {}
+                
+                for line in lines:
+                    if 'Header:' in line or 'header:' in line.lower():
+                        text = line.split(':', 1)[-1].strip()
+                        current_couple['layer1'] = text
+                    elif 'CTA:' in line or 'cta:' in line.lower():
+                        text = line.split(':', 1)[-1].strip()
+                        current_couple['layer2'] = text
+                        if 'layer1' in current_couple:
+                            couples.append(current_couple.copy())
+                            current_couple = {}
+                
+                # Ensure we have exactly 10 couples
+                couples = couples[:10]
+                
+                if len(couples) < 10:
+                    st.warning(f"⚠️ Only generated {len(couples)} couples. You may want to try again.")
                 
                 # Store in session state
-                st.session_state['variants'] = variants
-                st.session_state['selected_variants'] = []
+                st.session_state['couples'] = couples
+                st.session_state['selected_couples'] = []
                 
-                st.success(f"✅ Generated {len(variants)} title variants!")
+                st.success(f"✅ Generated {len(couples)} variant couples!")
                 
             except Exception as e:
                 st.error(f"❌ Error generating variants: {str(e)}")
 
-# Display variants if they exist
-if 'variants' in st.session_state and st.session_state['variants']:
+# Display variant couples if they exist
+if 'couples' in st.session_state and st.session_state['couples']:
     st.divider()
-    st.header("✅ Step 2: Select Variants to Generate Images")
+    st.header("✅ Step 2: Select Header & CTA Variants")
     
-    # Create checkboxes for each variant
+    # Create checkboxes for each couple
     selected_indices = []
     
-    cols = st.columns(2)
-    for idx, variant in enumerate(st.session_state['variants']):
-        col = cols[idx % 2]
-        with col:
-            if st.checkbox(f"**{idx + 1}.** {variant}", key=f"var_{idx}"):
-                selected_indices.append(idx)
+    for idx, couple in enumerate(st.session_state['couples']):
+        with st.container():
+            col1, col2 = st.columns([1, 20])
+            
+            with col1:
+                selected = st.checkbox("", key=f"couple_{idx}", label_visibility="collapsed")
+                if selected:
+                    selected_indices.append(idx)
+            
+            with col2:
+                st.markdown(f"""
+                **Variant {idx + 1}:**
+                - **Header:** {couple.get('layer1', 'N/A')}
+                - **CTA:** {couple.get('layer2', 'N/A')}
+                """)
+        
+        if idx < len(st.session_state['couples']) - 1:
+            st.divider()
     
-    st.session_state['selected_variants'] = selected_indices
+    st.session_state['selected_couples'] = selected_indices
     
     # Generate images button
     st.divider()
     if st.button("🖼️ Generate Images for Selected Variants", type="primary", use_container_width=True):
         if not photoroom_api_key:
             st.error("❌ PhotoRoom API key not found in environment variables")
-        elif not template_id or not layer_id:
-            st.error("❌ Please enter Template ID and Layer ID in the sidebar")
+        elif not template_id:
+            st.error("❌ Please enter Template ID in the sidebar")
         elif len(selected_indices) == 0:
-            st.warning("⚠️ Please select at least one variant")
+            st.warning("⚠️ Please select at least one header & CTA variant")
         else:
             st.header("🎨 Generated Images")
             
@@ -95,14 +140,18 @@ if 'variants' in st.session_state and st.session_state['variants']:
             generated_images = []
             
             for i, idx in enumerate(selected_indices):
-                variant_text = st.session_state['variants'][idx]
-                status_text.text(f"Generating image {i+1}/{len(selected_indices)}: {variant_text[:50]}...")
+                couple = st.session_state['couples'][idx]
+                layer1_text = couple.get('layer1', '')
+                layer2_text = couple.get('layer2', '')
+                
+                status_text.text(f"Generating image {i+1}/{len(selected_indices)}...")
                 
                 try:
-                    # Prepare form data
+                    # Prepare form data with both layers
                     form_data = {
                         "templateId": (None, template_id),
-                        f"layers.{layer_id}.text.content": (None, variant_text)
+                        f"layers.{layer_id_1}.text.content": (None, layer1_text),
+                        f"layers.{layer_id_2}.text.content": (None, layer2_text)
                     }
                     
                     # Make API request
@@ -116,16 +165,17 @@ if 'variants' in st.session_state and st.session_state['variants']:
                         # Convert to PIL Image
                         img = Image.open(BytesIO(response.content))
                         generated_images.append({
-                            'title': variant_text,
+                            'layer1': layer1_text,
+                            'layer2': layer2_text,
                             'image': img,
                             'bytes': response.content
                         })
                     else:
-                        st.error(f"❌ Failed to generate image for variant {idx+1}: {response.status_code}")
+                        st.error(f"❌ Failed to generate image for couple {idx+1}: {response.status_code}")
                         st.text(response.text)
                 
                 except Exception as e:
-                    st.error(f"❌ Error generating image for variant {idx+1}: {str(e)}")
+                    st.error(f"❌ Error generating image for couple {idx+1}: {str(e)}")
                 
                 progress_bar.progress((i + 1) / len(selected_indices))
             
@@ -142,7 +192,12 @@ if 'generated_images' in st.session_state and st.session_state['generated_images
     
     for i, img_data in enumerate(st.session_state['generated_images']):
         with st.container():
-            st.markdown(f"**{i+1}. {img_data['title']}**")
+            st.markdown(f"""
+            **Image {i+1}:**
+            - **Header:** {img_data['layer1']}
+            - **CTA:** {img_data['layer2']}
+            """)
+            
             col1, col2 = st.columns([2, 1])
             
             with col1:
@@ -160,21 +215,30 @@ if 'generated_images' in st.session_state and st.session_state['generated_images
             
             st.divider()
 
+
 # Instructions
 with st.expander("📖 How to Use"):
     st.markdown("""
     ### Step-by-step Guide:
     
-    1. **Configure Template Settings** in the sidebar:
-       - Template ID (the PhotoRoom template to use)
-       - Layer ID (the text layer to modify)
+    1. **Configure Template ID** in the sidebar
     
-    2. **Enter Your Brief** and click "Generate 10 Variants"
-       - The AI will create 10 different title options
+    2. **Enter Your Brief** and click "Generate 10 Header & CTA Variants"
+       - The AI will create 10 different header and CTA button text combinations
     
     3. **Select the variants** you want to create images for
-       - Check the boxes next to your favorite titles
+       - Check the boxes next to your favorite combinations
     
     4. **Click "Generate Images"** to create the final designs
        - Download individual images using the download buttons
+    
+    ### Example Values:
+    - Template ID: `ab19c9f6-235a-4ee5-9397-16baa4f705a1`
+    - Brief: `marketing for black friday`
+    
+    ### Notes:
+    - The app automatically uses "header" and "cta" as layer IDs
+    - API keys should be configured in Streamlit secrets:
+      - `WRITER_API_KEY`
+      - `PHOTOROOM_API_KEY`
     """)
